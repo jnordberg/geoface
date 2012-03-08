@@ -51,6 +51,13 @@ def match(user, waitlist):
 
 3. and the rest is history
 
+
+```
+C> type: 'hello', profile: …, location: …
+S> ok: true
+```
+
+
 ## i framtiden
 
 - notifications
