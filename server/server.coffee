@@ -26,24 +26,33 @@ wait = new waitlist.Waitlist
 clients = {}
 
 new_client = (socket) ->
+
   socket.on 'hello', (info) ->
+
     user = uid: info.user.id, point: [info.location.coords.latitude, info.location.coords.longitude]
-    clients[user.uid] = client = {user: user, socket: socket}
+    clients[user.uid] = client = {user: user, info: info, socket: socket}
+
     wait.search user, (mate) ->
       console.log('blah')
+
       if not mate?
         console.log('wait add')
         wait.add user
+
       else
         console.log('do it')
         console.log user, mate
         client.mate = mate
         mate.mate = mate
-        client.socket.emit 'knock'
-        clients[mate.uid].socket.emit 'knock'
+        client.socket.emit 'knock', clients[mate.uid].info
+        clients[mate.uid].socket.emit info
 
-  socket.on 'message', (args...) ->
-    #console.log 'client said', args.join ', '
-    #user = uid: "666", point: [55, 18]
+  socket.on 'privmsg', (uid, msg) ->
+    recipient = clients[uid]
+    recipient.socket.emit('privmsg', uid, msg)
+
+  #socket.on 'message', (args...) ->
+  #  console.log 'client said', args.join ', '
+  #  user = uid: "666", point: [55, 18]
 
 sio.sockets.on 'connection', new_client
