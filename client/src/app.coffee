@@ -49,6 +49,7 @@ class InputBar extends View
   button: (event) =>
     event.preventDefault()
     @sendMessage @toElement().getElement('input').get('value')
+    @toElement().getElement('input').set 'value', ''
 
   sendMessage: (message) =>
     @emit 'message', message
