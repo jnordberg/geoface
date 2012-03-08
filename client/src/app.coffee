@@ -39,22 +39,22 @@ class InputBar extends View
     input = element.getElement 'input'
     input.addEvent 'keydown', @keyhandler
     button = element.getElement 'button'
-    button.addEvent 'click', @sendMessage
+    button.addEvent 'click', @button
 
   keyhandler: (event) =>
     if event.key == 'enter'
       event.stop()
-      @sendMessage @toElement().getElement('input').get('text')
+      @sendMessage @toElement().getElement('input').get('value')
 
   button: (event) =>
     event.preventDefault()
-    @sendMessage @toElement().getElement('input').get('text')
+    @sendMessage @toElement().getElement('input').get('value')
 
-  sendMessage: (message) ->
-    if message.length > 2
-      @emit 'message', message
-    else
-      # TODO
+  sendMessage: (message) =>
+    @emit 'message', message
+
+
+InputBar.implements EventEmitter
 
 class MessageFeed extends View
 
@@ -84,42 +84,80 @@ class MessageFeed extends View
     list = @toElement().getElement 'ul'
     list.empty()
 
-class App
+MessageFeed.implements EventEmitter
 
-  constructor: ->
-    @socket = io.connect 'http://localhost'
-    @socket.on 'start', @onStart
+class MainView extends View
 
+  template: """
+    <section class="app">
+      <div class="login visible">
+        <p>Chat with random peaople nearby</p>
+        <button>Login</button>
+      </div>
+      <div class="chat"></div>
+    </section>
+  """
+
+  constructor: (@app) ->
     @bar = new TopBar
     @input = new InputBar
     @messages = new MessageFeed
 
-    @socket.on 'chat', (userID, message) =>
-      @messages.addMessage message, @user
+    @app.socket.on 'privmsg', (userID, message) =>
+      @messages.addMessage message, @app.toUserInfo
 
-    @bar.toElement().inject document.body
-    @input.toElement().inject document.body
-    @messages.toElement().inject document.body
-    @initFB()
+    @input.on 'message', (message) =>
+      @app.socket.emit 'privmsg', @app.toUserInfo.id, message
+
+  setupElement: (element) ->
+    element.getElement('button').addEvent 'click', (event) =>
+      event.preventDefault()
+      @app.login()
+    chat = element.getElement '.chat'
+    @bar.toElement().inject chat
+    @input.toElement().inject chat
+    @messages.toElement().inject chat
+
+  lookingForUser: ->
+    p = @toElement().getElement '.login p'
+    p.set 'text', 'Looking for chat-partner...'
+
+  showChat: ->
+    el = @toElement()
+    el.getElement('.login').removeClass('visible')
+    el.getElement('.chat').addClass('visible')
+
+
+class App
+
+  constructor: ->
+    @socket = io.connect 'http://localhost'
+    @socket.on 'knock', @onStart
+
+    @main = new MainView @
+    @main.toElement().inject document.body
+
+    window.fbAsyncInit = @initFB
     @initGeo()
 
-  initFB: ->
+  initFB: =>
     FB.init
       appId: '126843457444833'
       status: true
       cookie: true
       xfbml: true
       oauth: true
+    #FB.Event.subscribe 'auth.authResponseChange', @loginHandler
     FB.getLoginStatus @loginHandler
 
   loginHandler: (response) =>
+    console.log 'loginHandler', response
     if response.status is 'connected'
       @didLogin response.authResponse
-    else
-      @login()
 
   login: ->
-    FB.login @handleStatusChange,
+    console.log 'logging in'
+    FB.login (->),
       scope: 'user_about_me'
 
   didLogin: (authResponse) ->
@@ -128,6 +166,7 @@ class App
 
   setUser: (@user) ->
     @tellBackend()
+    @main.lookingForUser()
 
   initGeo: ->
     if not navigator.geolocation?
@@ -140,15 +179,13 @@ class App
 
   tellBackend: ->
     if @location? and @user?
-      console.log 'telling server', @location, @user
       @socket.emit 'hello',
         user: @user
         location: @location
 
-  onStart: (userID, @toUserInfo) ->
-
-
-
+  onStart: (@toUserInfo) =>
+    @toUserInfo = @user
+    @main.showChat()
 
 
 
