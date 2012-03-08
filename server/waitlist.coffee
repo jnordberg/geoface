@@ -31,16 +31,16 @@ class Waitlist
   constructor: (users = []) ->
     @_users = []
     for user in users
-      @_users[user.uid] = user
+      @_users[user.id] = user
 
   add: (user) ->
-    @_users[user.uid] = user
+    @_users[user.id] = user
 
   search: (user, callback) ->
     score = (other, callback) -> callback null, distance(user.point, other.point)
     async.sortBy (@_users[u] for u of @_users), score, (err, results) =>
       for user in results
-        delete @_users[user.uid]
+        delete @_users[user.id]
         return callback user
       return callback null
 

@@ -18,19 +18,22 @@ server.listen 8080
 wait = new waitlist.Waitlist
 
 [
-  {uid: "516251607", point: [59.33630, 18.02872]},
-  {uid: "123123", point: [59.31090, 18.08367]},
-  {uid: "123124", point: [59.312569, 18.09267]},
-  {uid: "123125", point: [65.640457, 22.012873]}]
+  {id: "516251607", point: [59.33630, 18.02872]},
+  {id: "123123", point: [59.31090, 18.08367]},
+  {id: "123124", point: [59.312569, 18.09267]},
+  {id: "123125", point: [65.640457, 22.012873]}]
 
 clients = {}
 
 new_client = (socket) ->
 
+  clients[socket.id] = {id: socket.id, socket: socket}
+
   socket.on 'hello', (info) ->
 
-    user = uid: info.user.id, point: [info.location.coords.latitude, info.location.coords.longitude]
-    clients[user.uid] = client = {user: user, info: info, socket: socket}
+    user = id: socket.id, point: [info.location.coords.latitude, info.location.coords.longitude]
+    client = clients[socket.id]
+    client.info = info
 
     wait.search user, (mate) ->
       console.log('blah')
@@ -40,19 +43,20 @@ new_client = (socket) ->
         wait.add user
 
       else
-        console.log('do it')
-        console.log user, mate
+        mate = clients[mate.id]
+        console.log('do it', client.id, mate.id)
         client.mate = mate
-        mate.mate = mate
-        client.socket.emit 'knock', clients[mate.uid].info
-        clients[mate.uid].socket.emit info
+        mate.mate = client
+        client.socket.emit 'knock', {id: mate.id, info: mate.info}
+        mate.socket.emit 'knock', {id: client.id, info: client.info}
 
-  socket.on 'privmsg', (uid, msg) ->
-    recipient = clients[uid]
-    recipient.socket.emit('privmsg', uid, msg)
+  socket.on 'privmsg', (id, msg) ->
+    console.log(id, msg)
+    recipient = clients[id]
+    recipient.socket.emit('privmsg', id, msg)
 
   #socket.on 'message', (args...) ->
   #  console.log 'client said', args.join ', '
-  #  user = uid: "666", point: [55, 18]
+  #  user = id: "666", point: [55, 18]
 
 sio.sockets.on 'connection', new_client
